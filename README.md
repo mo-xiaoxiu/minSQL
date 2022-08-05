@@ -197,7 +197,7 @@
       if(num_additional_rows > 0) {
           uint32_t page_num = num_full_pages;
           if(pager->page[page_num] != NULL) {
-              pager_flush(pager, page_num, num_additional_rows); //剩余的行数据也给清理掉
+              pager_flush(pager, page_num, num_additional_rows * ROW_SIZE); //剩余的行数据也给清理掉
               free(pager->page[page_num]);
               pager->page[page_num] = NULL;
           }
@@ -322,6 +322,8 @@
       Cursor* cursor = table_end(table); //定位到最后一行
       serialize_row(row_to_insert, cursor_value(cursor)); //序列化行数据：最后一行插入(通过光标定位)
       table->num_rows += 1; //表中行数 + 1
+
+      free(cursor);
   
       return EXECUTE_SUCCESS;
   }
