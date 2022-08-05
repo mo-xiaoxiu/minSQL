@@ -1,1 +1,0 @@
-/usr/bin/cc -g CMakeFiles/minsql.dir/src/main.c.o -o minsql 
