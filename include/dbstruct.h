@@ -77,4 +77,30 @@ typedef struct Statement
 } Statement;
 
 
+//节点头部格式
+const uint32_t NODE_TYPE_SIZE = sizeof(uint8_t); //节点类型
+const uint32_t NODE_TYPE_OFFSET = 0; //节点类型偏移量
+const uint32_t IS_ROOT_SIZE = sizeof(uint8_t); //是否为根节点
+const uint32_t IS_ROOT_OFFSET = NODE_TYPE_SIZE;
+const uint32_t PARENT_POINTER_SIZE = sizeof(uint32_t); //父节点指针大小
+const uint32_t PARENT_POINTER_OFFSET = IS_ROOT_SIZE + IS_ROOT_OFFSET; //父节点指针偏移量 = 根节点大小 + 根节点偏移量
+const uint32_t COMMON_NODE_HEADER_SIZE = 
+    NODE_TYPE_SIZE + IS_ROOT_SIZE + PARENT_POINTER_SIZE;  //节点头部大小 = 节点类型 + 根节点大小 + 父节点指针大小
+
+
+//叶子节点格式
+const uint32_t LEAF_NODE_NUM_CELLS_SIZE = sizeof(uint32_t); //叶节点单元格数量大小
+const uint32_t LEAF_NODE_NUM_CELLS_OFFSET = COMMON_NODE_HEADER_SIZE; //叶节点单元个数偏移量 = 节点头部大小
+const uint32_t LEAF_NODE_HEADER_SIZE = COMMON_NODE_HEADER_SIZE + LEAF_NODE_NUM_CELLS_OFFSET;
+
+//叶节点主体：单元数组，每个单元格是一个键， 后接一个值（序列化行数据）
+const uint32_t LEAF_NODE_KEY_SIZE = sizeof(uint32_t);
+const uint32_t LEAF_NODE_KEY_OFFSET = 0;
+const uint32_t LEAF_NODE_VALUE_SIZE = ROW_SIZE; //叶节点值大小 = 行大小
+const uint32_t LEAF_NODE_VALUE_OFFSET = LEAF_NODE_KEY_SIZE + LEAF_NODE_KEY_OFFSET;
+const uint32_t LEAF_NODE_CELL_SIZE = LEAF_NODE_KEY_SIZE + LEAF_NODE_VALUE_SIZE; //单元格大小 = 键大小 + 值大小
+const uint32_t LEAF_NODE_SPACE_FOR_CELLS = PAGE_SIZE - LEAF_NODE_HEADER_SIZE; //叶节点分配给单元格的空间 = 页大小 - 叶节点头部大小
+
+
+
 #endif

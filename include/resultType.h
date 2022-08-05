@@ -25,5 +25,10 @@ typedef enum {
     EXECUTE_TABLE_FULL
 } ExecuteResult;
 
+//节点类型
+typedef enum {
+    NODE_INTERNAL, //内部节点
+    NODE_LEAF //叶子节点
+} NodeType;
 
 #endif

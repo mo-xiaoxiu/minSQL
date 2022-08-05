@@ -378,4 +378,31 @@ ExecuteResult execute_statement(Statement* statement, Table* table) {
     }
 }
 
+
+
+//访问叶节点的字段
+//叶节点的单元格数量
+uint32_t* leaf_node_num_cells(void* node) {
+    return node + LEAF_NODE_NUM_CELLS_OFFSET;
+}
+
+//叶节点单元格
+void* leaf_node_cell(void* node, uint32_t cell_num) {
+    return node + LEAF_NODE_HEADER_SIZE + cell_num * LEAF_NODE_CELL_SIZE;
+}
+
+//叶节点键
+uint32_t* leaf_node_key(void* node, uint32_t cell_num) {
+    return leaf_node_cell(node, cell_num);
+}
+
+//叶节点值
+void* leaf_node_value(void* node, uint32_t cell_num) {
+    return leaf_node_key(node, cell_num) + LEAF_NODE_KEY_SIZE;
+}
+
+//初始化叶节点
+void initiallze_leaf_node(void* node) { *leaf_node_num_cells(node); }
+
+
 #endif
