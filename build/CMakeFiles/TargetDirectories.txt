@@ -1,0 +1,3 @@
+/home/zjp/ownPro/minSQL/build/CMakeFiles/minsql.dir
+/home/zjp/ownPro/minSQL/build/CMakeFiles/edit_cache.dir
+/home/zjp/ownPro/minSQL/build/CMakeFiles/rebuild_cache.dir

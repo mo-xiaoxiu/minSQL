@@ -1,59 +1,15 @@
-#define _GNU_SOURCE //getline: ssize_t getline(char **lineptr, size_t *n, FILE *stream);
-#include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
+#ifndef FUNC_H_
+#define FUNC_H_
+#include "resultType.h"
+#include "dbstruct.h"
 #include <string.h>
-#include <stdint.h> //uint_32_t
-#include <unistd.h> //open
-#include <errno.h> //errno
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <errno.h>
+#include <fcntl.h>
 
 
-// 3
-#define COLUMN_USERNAME_SIZE 32
-#define COLUMN_EMAIL_SIZE 255
-#define size_of_attribute(Struct, Attribute) sizeof(((Struct*)0)->Attribute) //计算某个字段的大小
-//表示一行数据的结构体
-typedef struct {
-    uint32_t id;
-    char username[COLUMN_USERNAME_SIZE + 1]; //“\0”
-    char email[COLUMN_EMAIL_SIZE + 1];
-} Row;
-//各个字段的大小
-const uint32_t ID_SIZE = size_of_attribute(Row, id);
-const uint32_t USERNAME_SIZE = size_of_attribute(Row, username);
-const uint32_t EMAIL_SIZE = size_of_attribute(Row, email);
-//各个字段的偏移量
-#define ID_OFFSET  0
-#define USERNAME_OFFSET  (ID_OFFSET + ID_SIZE)
-#define EMAIL_OFFSET (USERNAME_OFFSET + USERNAME_SIZE)
-#define ROW_SIZE (ID_SIZE + USERNAME_SIZE + EMAIL_SIZE)
-//一页大小
-const uint32_t PAGE_SIZE = 4096; //4KB
-//一张表最多又多少页： 100
-#define TABLE_MAX_PAGES 100
-//一页有多少行
-#define ROWS_PER_SIZE (PAGE_SIZE / ROW_SIZE)
-//一张表最多有多少行
-#define TABLE_MAX_ROWS (ROWS_PER_SIZE * TABLE_MAX_PAGES)
-//寻呼机
-typedef struct {
-    int file_descriptor; //文件描述符
-    uint32_t file_length;
-    void* page[TABLE_MAX_PAGES];
-} Pager;
-//结构体：表
-typedef struct {
-    uint32_t num_rows;
-    //void* pages[TABLE_MAX_PAGES];
-    Pager* pager; //表中通过寻呼机定位
-} Table;
-//光标
-typedef struct {
-    Table* table; //指向一个表
-    uint32_t row_nums; //推进到表中的哪一行
-    bool end_of_table; //是否到达表的结尾
-} Cursor;
 //打印一行的各个字段
 void print_row(Row* row) {
     printf("(%d, %s, %s)\n", row->id, row->username, row->email);
@@ -199,7 +155,7 @@ Table* db_open(const char* filename) {
 
     return table;
 }
-//寻呼机清楚页面内容
+//寻呼机清除页面内容
 void pager_flush(Pager* pager, uint32_t page_num, uint32_t size) {
     if(pager->page[page_num] == NULL) {
         printf("Tried to flush null page\n");
@@ -229,7 +185,7 @@ void db_close(Table* table) {
         if(pager->page[i] == NULL) {
             continue;
         }
-        pager_flush(pager, i, PAGE_SIZE); //清除页面的工作交给寻呼机
+        pager_flush(pager, i, PAGE_SIZE); //清除写回磁盘页面的工作交给寻呼机
         free(pager->page[i]);
         pager->page[i] = NULL;
     }
@@ -239,7 +195,7 @@ void db_close(Table* table) {
     if(num_additional_rows > 0) {
         uint32_t page_num = num_full_pages;
         if(pager->page[page_num] != NULL) {
-            pager_flush(pager, page_num, num_additional_rows); //剩余的行数据也给清理掉
+            pager_flush(pager, page_num, num_additional_rows * ROW_SIZE); //剩余的行数据也刷新到磁盘并清理掉
             free(pager->page[page_num]);
             pager->page[page_num] = NULL;
         }
@@ -271,43 +227,7 @@ void db_close(Table* table) {
 // }
 
 
-//权举
-//解析元命令
-typedef enum {
-    META_COMMAND_SUCCESS,
-    META_COMMAND_UNRECONIZED_COMMAND
-} MetaCommandResult;
-//解析准备语句
-typedef enum {
-    PREPARE_SUCCESS,
-    PREPARE_UNRECONIZED_STATEMENT,
-    PREPARE_SYNTAX_ERROR, //语法错误
-    PREPARE_STRING_TO_LONG, //（插入）字段字符串太长
-    PREPARE_NEGTIVE_ID //用户输入错误ID：负数
-} PrepareResult;
-//语句类型
-typedef enum {
-    STATEMENT_INSERT,
-    STATEMENT_SELECT
-} StatementType;
-typedef enum {
-    EXECUTE_SUCCESS,
-    EXECUTE_TABLE_FULL
-} ExecuteResult;
 
-//结构体
-//输入缓冲区
-typedef struct InputBuffer{
-    char* buffer;
-    size_t buffer_length;
-    ssize_t input_length;
-} InputBuffer;
-//语句
-typedef struct Statement
-{
-    StatementType type;
-    Row row_to_insert; //only insert
-} Statement;
 
 
 
@@ -420,6 +340,8 @@ ExecuteResult execute_insert(Statement* statement, Table* table) {
     serialize_row(row_to_insert, cursor_value(cursor)); //序列化行数据：最后一行插入(通过光标定位)
     table->num_rows += 1; //表中行数 + 1
 
+    free(cursor);
+
     return EXECUTE_SUCCESS;
 }
 //执行查询语句
@@ -456,86 +378,4 @@ ExecuteResult execute_statement(Statement* statement, Table* table) {
     }
 }
 
-
-
-
-
-
-int main(int argc, char** argv) {
-    //首先，新建一个表
-    //Table* table = new_table();
-
-    if(argc < 2) {
-        printf("Must supply a database filename.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    //打开数据库文件：依据用户输入的文件名
-    char* filename = argv[1];
-    Table* table = db_open(filename);
-
-    //创建一个缓冲区
-    InputBuffer* input_buffer = new_input_buffer();
-
-    while (true)
-    {
-        print_beginLine();
-        //读取用户输入
-        read_input(input_buffer);
-
-        // //1. 执行退出  .exit
-        // if(strcmp(input_buffer->buffer, ".exit") == 0) {
-        //     close_input_buffer(input_buffer); //关闭释放输入缓冲区
-        //     exit(EXIT_SUCCESS);
-        // }else{
-        //     printf("Unrecognized command '%s'.\n", input_buffer->buffer);
-        // }
-
-
-
-        if(input_buffer->buffer[0] == '.') { //元命令
-            switch (do_meta_command(input_buffer, table))
-            {
-            case (META_COMMAND_SUCCESS):
-                continue;
-                break;
-            case (META_COMMAND_UNRECONIZED_COMMAND):
-                printf("Unreconized command '%s'.\n", input_buffer->buffer);
-                continue;
-            }
-        }
-        Statement statement;
-        switch (prepare_statement(input_buffer, &statement)) //准备语句
-        {
-        case (PREPARE_SUCCESS):
-            break;
-        case (PREPARE_UNRECONIZED_STATEMENT):
-            printf("Unreconized keyword at start of '%s'.\n", input_buffer->buffer);
-            continue;
-        case (PREPARE_SYNTAX_ERROR):
-            printf("Unrecognized keyword at start of '%s'.\n", input_buffer->buffer);
-            continue;
-        case (PREPARE_NEGTIVE_ID):
-            printf("ID must be positive.\n");
-            continue;
-        case (PREPARE_STRING_TO_LONG):
-            printf("String is to long.\n");
-            continue;
-        }
-        //execute_statement(&statement); //执行语句
-        //printf("Executed.\n");
-
-
-        switch (execute_statement(&statement, table))
-        {
-        case (EXECUTE_SUCCESS):
-            printf("Executed.\n");
-            break;
-        case (EXECUTE_TABLE_FULL):
-            printf("Error: Table full.\n");
-            break;
-        }
-    }
-    
-    return 0;
-}
+#endif
