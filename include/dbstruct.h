@@ -32,10 +32,12 @@ const uint32_t EMAIL_SIZE = size_of_attribute(Row, email);
 const uint32_t PAGE_SIZE = 4096; //4KB
 //一张表最多又多少页： 100
 #define TABLE_MAX_PAGES 100
+
+//数据库中存储页数而不是行数更有意义
 //一页有多少行
-#define ROWS_PER_SIZE (PAGE_SIZE / ROW_SIZE)
-//一张表最多有多少行
-#define TABLE_MAX_ROWS (ROWS_PER_SIZE * TABLE_MAX_PAGES)
+// #define ROWS_PER_SIZE (PAGE_SIZE / ROW_SIZE)
+// //一张表最多有多少行
+// #define TABLE_MAX_ROWS (ROWS_PER_SIZE * TABLE_MAX_PAGES)
 
 
 
@@ -45,20 +47,24 @@ const uint32_t PAGE_SIZE = 4096; //4KB
 typedef struct {
     int file_descriptor; //文件描述符
     uint32_t file_length;
+    uint32_t num_pages; //页数：由寻呼机关联
     void* page[TABLE_MAX_PAGES];
 } Pager;
 
-//结构体：表
+//表
 typedef struct {
-    uint32_t num_rows;
+    //uint32_t num_rows; 
     //void* pages[TABLE_MAX_PAGES];
+    uint32_t root_page_num; //根节点页号
     Pager* pager; //表中通过寻呼机定位
 } Table;
 
 //光标
 typedef struct {
     Table* table; //指向一个表
-    uint32_t row_nums; //推进到表中的哪一行
+    //uint32_t row_nums; //推进到表中的哪一行
+    uint32_t page_num; //光标现在用于定位页
+    uint32_t cell_num; //单元号
     bool end_of_table; //是否到达表的结尾
 } Cursor;
 
@@ -100,7 +106,7 @@ const uint32_t LEAF_NODE_VALUE_SIZE = ROW_SIZE; //叶节点值大小 = 行大小
 const uint32_t LEAF_NODE_VALUE_OFFSET = LEAF_NODE_KEY_SIZE + LEAF_NODE_KEY_OFFSET;
 const uint32_t LEAF_NODE_CELL_SIZE = LEAF_NODE_KEY_SIZE + LEAF_NODE_VALUE_SIZE; //单元格大小 = 键大小 + 值大小
 const uint32_t LEAF_NODE_SPACE_FOR_CELLS = PAGE_SIZE - LEAF_NODE_HEADER_SIZE; //叶节点分配给单元格的空间 = 页大小 - 叶节点头部大小
-
+const uint32_t LEAF_NODE_MAX_CELLS = LEAF_NODE_SPACE_FOR_CELLS / LEAF_NODE_CELL_SIZE;
 
 
 #endif
